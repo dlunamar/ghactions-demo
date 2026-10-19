@@ -18,6 +18,16 @@ public class RiskBandCalculatorTests
         Assert.Equal(expected, RiskBandCalculator.Calculate(p, g));
     }
 
+    [Fact]
+    public void Calculate_IsSymmetric_OrderOfFactorsDoesNotMatter()
+    {
+        // probabilidad x gravedad es conmutativo: (2,5) y (5,2) => misma banda
+        Assert.Equal(
+            RiskBandCalculator.Calculate(2, 5),
+            RiskBandCalculator.Calculate(5, 2));
+        Assert.Equal(RiskBand.High, RiskBandCalculator.Calculate(2, 5)); // 10
+    }
+
     [Theory]
     [InlineData(0, 3)]
     [InlineData(6, 3)]
