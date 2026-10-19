@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Genera packages.lock.json: reproducibilidad de restores y
+         hash estable para la caché de NuGet en CI -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+</Project>

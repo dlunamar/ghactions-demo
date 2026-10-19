@@ -1,0 +1,75 @@
+# ============================================================
+# CI: build + tests en cada Pull Request y en cada push a main
+# Equivalente en Azure DevOps: azure-pipelines.yml con trigger pr
+#   - on: pull_request   <-> trigger: - main (rutas)
+#   - runs-on            <-> pool: vmImage
+#   - steps              <-> steps (tasks)
+#   - secrets            <-> variable groups / Key Vault
+# ============================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Si alguien hace push mientras corre un PR de la misma rama, cancela
+# la ejecución anterior (como el "cancel previous runs" de Azure DevOps)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build y tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]   # matrix == strategy/matrix en Azure DevOps
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true                    # cachea los paquetes NuGet por hash del lock file
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore
+        run: dotnet restore GhActionsDemo.slnx
+
+      - name: Build
+        run: dotnet build GhActionsDemo.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test GhActionsDemo.slnx
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+
+      - name: Subir resultados de test
+        if: always()                       # se sube aunque fallen (como PublishTestResults@2)
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: '**/TestResults/**/*.trx'
+          retention-days: 7
+
+  # Job separado y posterior: simula el quality gate / approval
+  # En GitHub Actions la aprobación real se configura en Settings -> Environments
+  report:
+    name: Resumen de CI
+    needs: build                          # needs == dependsOn
+    runs-on: ubuntu-latest
+    steps:
+      - name: Todo verde
+        run: echo "Build y tests OK en ${{ github.sha }}"
